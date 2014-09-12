@@ -10,7 +10,7 @@ It is a naiv tool to retrieve the twitpic img from your 'tweets.zip' file
 
 3.	Launch it: `./gotwitpic -zipFile="tweets.zip`
 
-![Screenshot-osx](https://www.dropbox.com/s/aky6rrur9qr9hs4/Screenshot%202014-09-12%2016.52.08.png?dl=0)
+![Screenshot-osx](https://www.dropbox.com/s/aky6rrur9qr9hs4/Screenshot%202014-09-12%2016.52.08.png?dl=1)
 
 
 #Changelogs
