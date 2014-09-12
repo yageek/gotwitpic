@@ -3,39 +3,67 @@ package main
 import (
 	"archive/zip"
 	"encoding/csv"
-	"flag"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/andlabs/ui"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strings"
 )
 
 var (
-	outputDir string
-	zipFile   string
+	w         ui.Window
+	fileLabel ui.Label
+	fileURL   string
 )
 
-func main() {
+func initGUI() {
 
-	flag.StringVar(&outputDir, "outputDir", "twitpicsave", "")
-	flag.StringVar(&zipFile, "zipFile", "", "")
-	flag.Parse()
+	fileLabel = ui.NewStandaloneLabel("File...")
+	b := ui.NewButton("Browse")
+	b.OnClicked(func() {
 
+		ui.OpenFile(w, func(filename string) {
+
+			fileLabel.SetText(filename)
+			fileURL = filename
+		})
+	})
+	s := ui.NewButton("Start")
+	s.OnClicked(func() {
+
+		ParseTweetFile(fileURL)
+
+	})
+
+	h := ui.NewHorizontalStack(fileLabel, b, s)
+	h.SetStretchy(0)
+
+	w = ui.NewWindow("golang twitpic", 500, 50, h)
+	w.OnClosing(func() bool {
+		ui.Stop()
+		return true
+	})
+	w.Show()
+}
+
+func ParseTweetFile(zipFile string) {
 	if zipFile == "" {
 		fmt.Printf("Please provide the path to the tweets.zip\n")
-		flag.Usage()
+		fileLabel.SetText("Could not proceed file")
 		return
 	}
 
 	r, err := zip.OpenReader(zipFile)
 	if err != nil {
 		fmt.Printf("Could not open provided zip :(")
+		fileLabel.SetText("Could not open file. Please provide another one")
+		return
 	}
 
 	defer r.Close()
@@ -47,6 +75,8 @@ func main() {
 			fc, err := f.Open()
 			if err != nil {
 				fmt.Printf("Could not open the tweets.csv")
+				fileLabel.SetText("Could not open the tweets.csv file")
+				return
 			}
 
 			csvReader := csv.NewReader(fc)
@@ -68,12 +98,16 @@ func main() {
 
 			if len(foundURL) > 0 {
 				fmt.Println("Length:", len(foundURL))
-				err := os.Mkdir(outputDir, os.ModeDir|os.ModePerm)
+				usr, _ := user.Current()
+
+				downloadDir := filepath.Join(usr.HomeDir, "twitpicsave")
+				err := os.Mkdir(downloadDir, os.ModeDir|os.ModePerm)
 				if err != nil {
-					log.Fatal(err)
+					fileLabel.SetText(fmt.Sprintf("Could not create directory at %s", downloadDir))
+					return
 				}
 
-				DownloadImages(foundURL)
+				go DownloadImages(foundURL, downloadDir)
 
 			}
 			break
@@ -81,10 +115,17 @@ func main() {
 		}
 
 	}
+}
+func main() {
 
+	go ui.Do(initGUI)
+	err := ui.Go()
+	if err != nil {
+		panic(err)
+	}
 }
 
-func DownloadImages(imageURLs []string) {
+func DownloadImages(imageURLs []string, outputDir string) {
 
 	for _, url := range imageURLs {
 
@@ -94,7 +135,7 @@ func DownloadImages(imageURLs []string) {
 		} else {
 			fullUrl = fmt.Sprintf("%s/full", url)
 		}
-		fmt.Printf("Downloading HTML at %s\n", fullUrl)
+		fileLabel.SetText(fmt.Sprintf("Downloading HTML at %s\n", fullUrl))
 
 		doc, err := goquery.NewDocument(fullUrl)
 		if err != nil {
@@ -130,5 +171,6 @@ func DownloadImages(imageURLs []string) {
 
 		}
 
+		fileLabel.SetText("Finished")
 	}
 }
